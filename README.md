@@ -30,3 +30,26 @@ The simulation uses the following formulas to bridge the gap between physical va
 1. **Clone the repository:**
    ```bash
    git clone [https://github.com/yourusername/f1-strategy-sim.git](https://github.com/yourusername/f1-strategy-sim.git)
+
+2. **Run the simulation:**
+   ``python main.py
+
+## 📊 SAMPLE OUTPUT
+
+--- 70 Lap Race: Kimi Antonelli vs Max Verstappen ---
+...
+LAP 20
+--- Kimi Antonelli is BOXING for Hards ---
+Merc Total: 1650.45s | Fuel: 64.0kg
+RB Total: 1642.12s | Fuel: 64.0kg
+
+--- Final Result ---
+The winner is Red Bull by 8.42 seconds!
+
+## Tracks & Future Roadmap
+
+    [ ] Stochastic Elements: Add a random noise factor to lap times to simulate driver error.
+
+    [ ] Strategy Optimizer: An iterative script to automatically test every pit window to find the mathematical "Global Minimum."
+
+    [ ] Data Visualization: Integrate matplotlib to graph the crossover points between different tire compounds.
