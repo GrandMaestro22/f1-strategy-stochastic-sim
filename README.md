@@ -6,7 +6,7 @@ A Python-based discrete-event simulation engine that models Formula 1 race dynam
 - **Dynamic Performance Modeling:** Lap times are calculated using a multi-variable linear model factoring in base car pace, tire compound modifiers, and fuel-load weight.
 - **Tire Degradation Curves:** Supports multiple compounds (Soft, Medium, Hard) with unique wear rates and "performance cliffs."
 - **Resource Constraints:** Implements fuel-burn logic and DNF (Did Not Finish) conditions for energy management.
-- **Strategic Decision Engine:** Supports manual and logic-based pit stop triggers to compare "undercut" and "overcut" strategies.
+- **Strategic Decision Engine:** Supports manual and logic-based pit stop triggers.
 
 ## 🛠️ Technical Concepts Applied
 
@@ -19,10 +19,11 @@ The simulation functions as a state machine where the car's state (fuel level an
 ### Mathematical Modeling
 The simulation uses the following formulas to bridge the gap between physical variables and race time:
 
-* **Tire Wear Penalty:**
-  $$Time_{penalty} = (100 - \text{life}) \times \text{decay\_rate}$$
-* **Fuel Weight Penalty:**
-  $$Time_{penalty} = \text{fuel\_mass} \times 0.03s/kg$$
+**1. Tire Wear Penalty**
+> $$Time_{penalty} = (100 - life) \times decay\_rate$$
+
+**2. Fuel Weight Penalty**
+> $$Time_{penalty} = fuel\_mass \times 0.03s/kg$$
 
 ## 📦 Installation & Usage
 
