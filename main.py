@@ -1,3 +1,5 @@
+import random
+
 TIRE_STATS = {
     "Soft": {"grip_penalty": 0.15, "base_modifier": -1.0},
     "Medium": {"grip_penalty": 0.08, "base_modifier": 0.0},
@@ -6,6 +8,9 @@ TIRE_STATS = {
 
 class Tire:
     def __init__(self, compound):
+        if compound not in TIRE_STATS:
+            print(f"Error: {compound} is not a valid tire. Defaulting to Medium.")
+            compound = "Medium"
         self.compound = compound
         self.life = 100
         self.penalty_rate = TIRE_STATS[self.compound]["grip_penalty"]
@@ -27,7 +32,8 @@ class RaceCar:
 
         wear_penalty = (100 - max(0, self.current_tire.life)) * self.current_tire.penalty_rate
         fuel_penalty = self.fuel * 0.03
-        return self.base_lap_time + wear_penalty + fuel_penalty + compound_speed
+        random_variance = random.uniform(-0.1, 0.3)
+        return self.base_lap_time + wear_penalty + fuel_penalty + compound_speed + random_variance
 
     def pit_stop(self, new_compound):
         self.total_time += 22.0
@@ -53,8 +59,8 @@ class RaceCar:
         self.total_time += 0.5
 
 if __name__ == "__main__":
-    mercedes = RaceCar("Mercedes", "Kimi Antonelli", "Soft", 130)
-    red_bull = RaceCar("Red Bull", "Max Verstappen", "Hard", 130 )
+    mercedes = RaceCar("Mercedes", "Kimi Antonelli", "Soft", 120)
+    red_bull = RaceCar("Red Bull", "Max Verstappen", "Hard", 120 )
 
     print(f"--- 70 Lap Race: {mercedes.driver_name} vs {red_bull.driver_name} ---")
 
