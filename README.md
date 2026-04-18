@@ -1,20 +1,24 @@
 # Apex Pit Optimizer: F1 Race Strategy Simulator
 
-A Python-based discrete-event simulation engine that models Formula 1 race dynamics. This tool uses **Object-Oriented Programming (OOP)** to simulate the interplay among tire degradation, fuel weight penalties, and pit-stop timing to determine optimal race strategies.
+A Python-based discrete-event simulation engine that models Formula 1 race dynamics. This tool uses **Object-Oriented Programming (OOP)** to simulate the interplay between tire degradation, fuel weight penalties, and pit stop timing to determine optimal race strategies.
 
 ## 🚀 Key Features
 - **Dynamic Performance Modeling:** Lap times are calculated using a multi-variable linear model factoring in base car pace, tire compound modifiers, and fuel-load weight.
 - **Automated Strategy Optimizer:** Features a brute-force search algorithm that iterates through every possible pit window to identify the mathematically optimal strategy.
 - **Stochastic Variance:** Uses Gaussian-style randomness to simulate driver inconsistency and varying track conditions.
-- **Resource Constraints:** Implements fuel-burn logic and DNF (Did Not Finish) conditions for realistic energy management.
+- **Data Visualization:** Integrated `matplotlib` telemetry dashboard to graph crossover points and performance "cliffs" across different tire compounds.
+- **Containerized Environment:** Fully Dockerized with graphics support to ensure platform-agnostic execution and reproducible results.
 
 ## 🛠️ Technical Concepts Applied
 
 ### Object-Oriented Programming (OOP)
-The project is built on state encapsulation. The `RaceCar` class maintains its own fuel and timing data, while the `Tire` class manages its own degradation metrics. This modularity allows for easy expansion (e.g., adding a `Track` class or `Weather` effects).
+The project is built on the encapsulation of states. The `RaceCar` class maintains its own fuel and timing data, while the `Tire` class manages its own degradation metrics. This modularity allows for easy expansion (e.g., adding a `Track` class or `Weather` effects).
 
 ### Brute-Force Optimization
-The Strategy Optimizer implements a search algorithm that runs independent race simulations for every possible pit lap. By recording the `total_time` for each permutation, the program identifies the "Global Minimum"—the pit stop that results in the fastest race completion.
+The Strategy Optimizer implements a search algorithm that runs independent race simulations for every possible pit lap. By recording the `total_time` for each permutation, the program identifies the "Global Minimum"—the pit lap that results in the fastest race completion.
+
+### Containerization & Volumes
+The application is encapsulated within a **Docker** container. To handle the visualization engine, the Dockerfile includes system-level dependencies for font rendering. **Volume Mapping** is utilized to export generated telemetry plots from the isolated container to the host machine.
 
 ### Mathematical Modeling
 The simulation uses the following formulas to bridge the gap between physical variables and race time:
@@ -28,14 +32,12 @@ The simulation uses the following formulas to bridge the gap between physical va
 **3. Stochastic Factor**
 > $$Lap_{time} = \text{Base} + \text{Penalties} + \text{Random}(-0.1, 0.3)$$
 
-### Containerization & DevOps
-By implementing a **Dockerfile**, the application is encapsulated within a lightweight virtual environment. This eliminates "dependency drift" and ensures that the simulation's math and logic remain consistent regardless of the host operating system.
-
 ## 📦 Installation & Usage
 
-1. **Clone the repository:(Option 1)**
+### Option 1: Standard Python
+1. **Install dependencies:**
    ```bash
-   git clone [https://github.com/yourusername/f1-strategy-sim.git](https://github.com/yourusername/f1-strategy-sim.git)
+   pip install -r requirements.txt
 
 2. **Run the simulation:**
    ``python main.py
@@ -50,7 +52,7 @@ By implementing a **Dockerfile**, the application is encapsulated within a light
    Run the container:
     
     Bash
-    docker run f1-sim
+    docker run -v .:/app f1-sim
 
 ## 📊 SAMPLE OUTPUT
 
