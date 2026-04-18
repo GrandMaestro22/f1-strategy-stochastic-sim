@@ -1,10 +1,41 @@
 import random
+import matplotlib.pyplot as plt
 
 TIRE_STATS = {
     "Soft": {"grip_penalty": 0.15, "base_modifier": -1.0},
     "Medium": {"grip_penalty": 0.08, "base_modifier": 0.0},
     "Hard": {"grip_penalty": 0.03, "base_modifier": 1.5}
 }
+
+def plot_tire_comparison(total_laps):
+    plt.style.use('dark_background')
+
+    compounds = ["Soft", "Medium", "Hard"]
+    lap_data = {comp: [] for comp in compounds}
+    laps = list(range(1, total_laps + 1))
+
+    for comp in compounds:
+        test_car = RaceCar("Sim", "Test", comp, 100)
+        for lap in laps:
+            lap_time = test_car.calculate_lap_time()
+            lap_data[comp].append(lap_time)
+            test_car.drive_lap()
+
+    # 1. CREATE THE PLOT
+    plt.figure(figsize=(12, 7))
+    plt.plot(laps, lap_data["Soft"], label="Soft (Degradation)", color="#FF3333", lw=3)
+    plt.plot(laps, lap_data["Medium"], label="Medium", color="#FFFF33", lw=3)
+    plt.plot(laps, lap_data["Hard"], label="Hard (Endurance)", color="#FFFFFF", lw=3)
+
+    # 2. ADD STYLE & LABELS
+    plt.title("F1 Apex Optimizer: Tire Crossover Analysis", fontsize=16, color="cyan")
+    plt.xlabel("Lap Number", fontsize=12)
+    plt.ylabel("Lap Time (Seconds)", fontsize=12)
+    plt.grid(color='gray', linestyle='--', linewidth=0.5, alpha=0.3)
+    plt.legend(facecolor='black', edgecolor='gray')
+    plt.savefig("f1_strategy_plot.png", dpi=300)
+    plt.show()
+
 
 class Tire:
     def __init__(self, compound):
@@ -26,7 +57,6 @@ def find_best_strategy(driver_name, compound_start, compound_end, total_laps):
         for lap in range(1, total_laps + 1):
             test_car.drive_lap()
             if lap == pit_lap:
-                # FIX 1: Pass silent=True here to stop the over-printing
                 test_car.pit_stop(compound_end, silent=True)
         results[pit_lap] = test_car.total_time
 
@@ -71,11 +101,13 @@ class RaceCar:
         return current_lap_time
 
     def lift_and_coast(self):
-        # Driver saves fuel but loses 0.5s of pace
-        self.fuel -= 1.2  # Reduced from 1.8
+
+        self.fuel -= 1.2  
         self.total_time += 0.5
+
 if __name__ == "__main__":
-# 1. Run the Strategy Simulation first
+    plot_tire_comparison(50)
+    # 1. Run the Strategy Simulation first
     print("--- Strategy Team: Calculating Optimal Window ---")
     best_lap, best_time = find_best_strategy("Kimi Antonelli", "Soft", "Hard", 50)
     print(f"SUGGESTED STRATEGY: Pit on Lap {best_lap} for a projected {best_time:.2f}s total.\n")
