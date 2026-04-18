@@ -18,6 +18,22 @@ class Tire:
     def wear(self):
         self.life -= 5
 
+
+def find_best_strategy(driver_name, compound_start, compound_end, total_laps):
+    results = {}
+    for pit_lap in range(1, total_laps):
+        test_car = RaceCar("SimTeam", driver_name, compound_start, 130)
+        for lap in range(1, total_laps + 1):
+            test_car.drive_lap()
+            if lap == pit_lap:
+                # FIX 1: Pass silent=True here to stop the over-printing
+                test_car.pit_stop(compound_end, silent=True)
+        results[pit_lap] = test_car.total_time
+
+    best_lap = min(results, key=results.get)
+    best_time = results[best_lap]
+    return best_lap, best_time
+
 class RaceCar:
     def __init__(self, team, driver_name, tire_compound, fuel):
         self.team = team
@@ -35,9 +51,10 @@ class RaceCar:
         random_variance = random.uniform(-0.1, 0.3)
         return self.base_lap_time + wear_penalty + fuel_penalty + compound_speed + random_variance
 
-    def pit_stop(self, new_compound):
+    def pit_stop(self, new_compound, silent=False):
         self.total_time += 22.0
-        print(f"\n--- {self.driver_name} is BOXING for {new_compound}s ---")
+        if not silent:
+            print(f"\n--- {self.driver_name} is BOXING ---")
         self.current_tire = Tire(new_compound)
 
     def burn_fuel(self):
@@ -57,39 +74,36 @@ class RaceCar:
         # Driver saves fuel but loses 0.5s of pace
         self.fuel -= 1.2  # Reduced from 1.8
         self.total_time += 0.5
-
 if __name__ == "__main__":
+# 1. Run the Strategy Simulation first
+    print("--- Strategy Team: Calculating Optimal Window ---")
+    best_lap, best_time = find_best_strategy("Kimi Antonelli", "Soft", "Hard", 50)
+    print(f"SUGGESTED STRATEGY: Pit on Lap {best_lap} for a projected {best_time:.2f}s total.\n")
+
+    # 2. Set up the actual race
     mercedes = RaceCar("Mercedes", "Kimi Antonelli", "Soft", 120)
-    red_bull = RaceCar("Red Bull", "Max Verstappen", "Hard", 120 )
+    red_bull = RaceCar("Red Bull", "Max Verstappen", "Hard", 120) # Bring Max back!
 
-    print(f"--- 70 Lap Race: {mercedes.driver_name} vs {red_bull.driver_name} ---")
-
+    print(f"--- 50 Lap Race Start ---")
     for lap in range(1, 51):
-        # Drive laps
         mercedes.drive_lap()
         red_bull.drive_lap()
 
-        # Strategy logic
-        if mercedes.current_tire.compound == "Soft" and lap == 23:
-            mercedes.pit_stop("Soft")
+        # Execute the automated strategy
+        if lap == best_lap:
+            mercedes.pit_stop("Hard") # We want to see this one print!
 
-        # Status and DNF checks
+        # Progress reporting
         if lap % 10 == 0:
             print(f"\nLAP {lap}")
-            print(f"Merc Total: {mercedes.total_time:.2f}s | Fuel: {mercedes.fuel:.1f}kg")
-            print(f"RB Total: {red_bull.total_time:.2f}s | Fuel: {red_bull.fuel:.1f}kg")
-            if mercedes.fuel < 10:
-                print(f"--- WARNING: {mercedes.driver_name} LOW FUEL ({mercedes.fuel:.1f}kg) ---")
+            print(f"Merc Pace: {mercedes.total_time:.2f}s | Fuel: {mercedes.fuel:.1f}kg")
+            print(f"RB Pace: {red_bull.total_time:.2f}s | Fuel: {red_bull.fuel:.1f}kg")
 
+        # DNF Check
         if mercedes.fuel <= 0 or red_bull.fuel <= 0:
-            dnf_driver = mercedes.driver_name if mercedes.fuel <= 0 else red_bull.driver_name
-            print(f"\n--- CRITICAL: {dnf_driver} has run out of fuel and DNF'd! ---")
+            print("\n--- CRITICAL: FUEL DEPLETED ---")
             break
 
     print("\n--- Final Result ---")
-    if mercedes.fuel > 0 and red_bull.fuel > 0:
-        winner = "Mercedes" if mercedes.total_time < red_bull.total_time else "Red Bull"
-        gap = abs(mercedes.total_time - red_bull.total_time)
-        print(f"The winner is {winner} by {gap:.2f} seconds!")
-    else:
-        print("The race ended in a DNF.")
+    winner = "Mercedes" if mercedes.total_time < red_bull.total_time else "Red Bull"
+    print(f"The winner is {winner}!")
