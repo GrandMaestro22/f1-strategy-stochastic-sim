@@ -8,6 +8,8 @@ A Python-based discrete-event simulation engine that models Formula 1 race dynam
 - **Stochastic Variance:** Uses Gaussian-style randomness to simulate driver inconsistency and varying track conditions.
 - **Data Visualization:** Integrated `matplotlib` telemetry dashboard to graph crossover points and performance "cliffs" across different tire compounds.
 - **Containerized Environment:** Fully Dockerized with graphics support to ensure platform-agnostic execution and reproducible results.
+- **Data Persistence:** Automatically logs every lap of the race—including tire compound, pace, and wetness—into a `.csv` file for post-race telemetry analysis.
+- **Tire Degradation Modeling:** Simulates non-linear grip loss and thermal degradation (shredding) of wet tires on dry surfaces.
 
 ## 🛠️ Technical Concepts Applied
 
@@ -68,10 +70,8 @@ RB Pace: 845.30s | Fuel: 102.0kg
 ...
 The winner is Mercedes!
 
+![Example Plot](./images/f1_strategy_plot_example.png)
+
 ## Tracks & Future Roadmap
-
-[ ] Data Visualization: Integrate matplotlib to graph the crossover points between different tire compounds.
-
-[ ] Weather Engine: Implement dynamic track temperatures and rain conditions that alter grip coefficients.
 
 [ ] Multi-Car Grid: Expand the simulation to handle 20+ cars with overtaking logic and "dirty air" penalties.
