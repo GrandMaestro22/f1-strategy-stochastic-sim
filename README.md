@@ -10,6 +10,13 @@ A Python-based discrete-event simulation engine that models Formula 1 race dynam
 - **Containerized Environment:** Fully Dockerized with graphics support to ensure platform-agnostic execution and reproducible results.
 - **Data Persistence:** Automatically logs every lap of the race—including tire compound, pace, and wetness—into a `.csv` file for post-race telemetry analysis.
 - **Tire Degradation Modeling:** Simulates non-linear grip loss and thermal degradation (shredding) of wet tires on dry surfaces.
+- **Stochastic Safety Car System:** The simulator now includes a non-deterministic Safety Car (SC) logic to mirror real-world race unpredictability:
+
+   - Deployment Logic: Each lap has a stochastic 2% chance of a hazard trigger, deploying the Safety Car.
+
+   - Strategic Advantage: Pit stop "cost" is dynamically reduced from 22 seconds to 12 seconds during SC periods, rewarding tactical flexibility.
+
+   - AI Opportunism: The RaceCar class includes a decision-making layer that evaluates tire age during neutralizations, triggering a "Cheap Stop" if tire life is below a specific threshold (e.g., >15 laps).
 
 ## 🛠️ Technical Concepts Applied
 
@@ -17,7 +24,7 @@ A Python-based discrete-event simulation engine that models Formula 1 race dynam
 The project is built on the encapsulation of states. The `RaceCar` class maintains its own fuel and timing data, while the `Tire` class manages its own degradation metrics. This modularity allows for easy expansion (e.g., adding a `Track` class or `Weather` effects).
 
 ### Brute-Force Optimization
-The Strategy Optimizer implements a search algorithm that runs independent race simulations for every possible pit lap. By recording the `total_time` for each permutation, the program identifies the "Global Minimum"—the pit lap that results in the fastest race completion.
+The Strategy Optimizer implements a search algorithm that runs independent race simulations for every possible pit lap. By recording the `total_time` for each permutation, the program identifies the "Global Minimum". The pit lap that results in the fastest race completion.
 
 ### Containerization & Volumes
 The application is encapsulated within a **Docker** container. To handle the visualization engine, the Dockerfile includes system-level dependencies for font rendering. **Volume Mapping** is utilized to export generated telemetry plots from the isolated container to the host machine.
@@ -40,21 +47,46 @@ The simulation uses the following formulas to bridge the gap between physical va
 1. **Install dependencies:**
    ```bash
    pip install -r requirements.txt
+   ```
 
-2. **Run the simulation:**
-   ``python main.py
+2. **Run the simulation with default parameters:**
+   ```bash
+   python main.py
+   ```
 
-**Option 2: Docker (Recommended)**
+3. **Run with custom options:**
+   ```bash
+   python main.py --laps 75 --timestamp-mode local --report-format md
+   ```
+
+**CLI Arguments:**
+- `--laps` (int, default=50): Number of laps to simulate
+- `--timestamp-mode` (utc|local, default=utc): Use UTC or local timezone for telemetry timestamps
+- `--report-format` (text|md|both, default=both): Output format for race report (text, markdown, or both)
+
+### Option 2: Docker (Recommended)
 
    Build the image:
-    
-    Bash
-    docker build -t f1-sim .
+   ```bash
+   docker build -t f1-sim .
+   ```
 
    Run the container:
-    
-    Bash
-    docker run -v .:/app f1-sim
+   ```bash
+   docker run -v .:/app f1-sim
+   ```
+
+### Running Tests
+
+Run all unit tests:
+```bash
+python -m unittest discover -s tests -p "test_*.py" -v
+```
+
+Individual test:
+```bash
+python -m unittest tests.test_telemetry.TelemetryTest.test_sim_outputs -v
+```
 
 ## 📊 SAMPLE OUTPUT
 
@@ -71,6 +103,25 @@ RB Pace: 845.30s | Fuel: 102.0kg
 The winner is Mercedes!
 
 ![Example Plot](./images/f1_strategy_plot_example.png)
+
+## 📁 Generated Telemetry & Reports
+
+After a run, the simulator writes detailed telemetry and summary files to the working directory:
+
+- `race_telemetry.csv` — full per-lap telemetry for every car. Columns: `Lap,Driver,Tire,LapTime,TrackWetness,RaceTime,Fuel,Pit,Timestamp`.
+- `<Driver_Name>_telemetry.csv` — per-driver CSVs (e.g. `Kimi_Antonelli_telemetry.csv`, `Max_Verstappen_telemetry.csv`).
+- `race_summary.csv` — a compact CSV summary containing total time, pit count, cumulative pit time, fastest lap, and average lap per driver.
+- `race_report.txt` — a human-readable race report describing the winner and per-driver summary statistics (always generated).
+- `race_report.md` — a Markdown-formatted race report with a summary table (generated when `--report-format` is `md` or `both`).
+
+**Timestamp Format:**
+- By default, `Timestamp` values are **timezone-aware UTC ISO-8601 strings** (e.g. `2026-05-02T23:20:23.935292+00:00`).
+- Use `--timestamp-mode local` to switch to local timezone timestamps instead.
+
+**Pit Stop Logic:**
+- Standard pit stop cost: 22 seconds
+- During Safety Car period: 12 seconds (reduced cost to reward tactical flexibility)
+- Pit stop time is recorded in the driver's cumulative pit time and flagged in the telemetry `Pit` column
 
 ## Tracks & Future Roadmap
 

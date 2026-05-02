@@ -1,239 +1,309 @@
 import random
-
-import matplotlib
-
-matplotlib.use("Agg")
+import csv
+from datetime import datetime, timezone
+import argparse
 import matplotlib.pyplot as plt
 
+# Tire compound performance parameters.
+# - base_pace_mod: additive lap-time modifier for compound (sec)
+# - wear_rate: how quickly grip/time degrades per lap on that compound
+# - wet_efficiency: how well the compound performs on wet track (1.0 is ideal in rain)
 TIRE_STATS = {
-    "Soft": {
-        "base_pace_mod": -1.0,  # Fastest base speed
-        "wear_rate": 0.15,      # High wear
-        "wet_efficiency": 0.1   # Terrible in rain
-    },
-    "Medium": {
-        "base_pace_mod": 0.0,   # Neutral base
-        "wear_rate": 0.08,      # Balanced wear
-        "wet_efficiency": 0.15
-    },
-    "Hard": {
-        "base_pace_mod": 1.5,   # Slowest base
-        "wear_rate": 0.03,      # Lowest wear
-        "wet_efficiency": 0.2
-    },
-    "Inters": {
-        "base_pace_mod": 5.0,   # Naturally slow on dry track
-        "wear_rate": 0.8,       # Wears fast on dry track
-        "wet_efficiency": 0.95  # Great in rain
-    },
-    "Full_Wet": {
-        "base_pace_mod": 10.0,  # Very slow on dry track
-        "wear_rate": 1.2,       # Shreds on dry track
-        "wet_efficiency": 1.0   # Perfect for rain
-    }
+    "Soft": {"base_pace_mod": -1.0, "wear_rate": 0.15, "wet_efficiency": 0.1},
+    "Medium": {"base_pace_mod": 0.0, "wear_rate": 0.08, "wet_efficiency": 0.15},
+    "Hard": {"base_pace_mod": 1.5, "wear_rate": 0.03, "wet_efficiency": 0.2},
+    "Inters": {"base_pace_mod": 5.0, "wear_rate": 0.8, "wet_efficiency": 0.95},
+    "Full_Wet": {"base_pace_mod": 10.0, "wear_rate": 1.2, "wet_efficiency": 1.0}
 }
-
-def plot_tire_comparison(total_laps):
-    plt.style.use('dark_background')
-
-    compounds = ["Soft", "Medium", "Hard"]
-    lap_data = {comp: [] for comp in compounds}
-    laps = list(range(1, total_laps + 1))
-
-    for comp in compounds:
-        test_car = RaceCar("Sim", "Test", comp, 100)
-        for lap in laps:
-            lap_time = test_car.calculate_lap_time()
-            lap_data[comp].append(lap_time)
-            test_car.drive_lap()
-
-    # 1. CREATE THE PLOT
-    plt.figure(figsize=(12, 7))
-    plt.plot(laps, lap_data["Soft"], label="Soft (Degradation)", color="#FF3333", lw=3)
-    plt.plot(laps, lap_data["Medium"], label="Medium", color="#FFFF33", lw=3)
-    plt.plot(laps, lap_data["Hard"], label="Hard (Endurance)", color="#FFFFFF", lw=3)
-
-    # 2. ADD STYLE & LABELS
-    plt.title("F1 Apex Optimizer: Tire Crossover Analysis", fontsize=16, color="cyan")
-    plt.xlabel("Lap Number", fontsize=12)
-    plt.ylabel("Lap Time (Seconds)", fontsize=12)
-    plt.grid(color='gray', linestyle='--', linewidth=0.5, alpha=0.3)
-    plt.legend(facecolor='black', edgecolor='gray')
-    plt.savefig("f1_strategy_plot.png", dpi=300)
-    plt.close()
 
 class Track:
     def __init__(self):
-        self.wetness = 0.0  # 0.0 (Dry) to 1.0 (Flooded)
-        self.rain_intensity = 0.0 # How hard it is currently raining
+        # Current track wetness (0.0 dry -> 1.0 fully flooded)
+        self.wetness = 0.0
+        # Instantaneous rain intensity (used to change wetness over time)
+        self.rain_intensity = 0.0
+        # Whether a Safety Car period is active
+        self.safety_car = False
         
     def update_weather(self):
-        # 1. Determine if a weather shift happens (5% chance per lap)
+        # 1. Weather shifts (5% chance)
         if random.random() < 0.05:
-            # If it's dry, start a random rain intensity
             if self.rain_intensity == 0:
                 self.rain_intensity = random.uniform(0.1, 0.5) 
             else:
-                # If already raining, it might stop or get heavier
                 self.rain_intensity = max(0, self.rain_intensity + random.uniform(-0.2, 0.2))
 
-        # 2. Update track wetness based on intensity
+        # 2. Update wetness
         if self.rain_intensity > 0:
             self.wetness = min(1.0, self.wetness + (self.rain_intensity * 0.2))
         else:
-            # If no rain, the track naturally dries (0.05 per lap)
             self.wetness = max(0.0, self.wetness - 0.05)
-
-    def get_condition(self):
-        if self.wetness < 0.1: return "Dry"
-        if self.wetness < 0.4: return "Damp"
-        if self.wetness < 0.7: return "Wet"
-        return "Extreme Wet"
-    
-    def check_strategy(self, tire_type):
-        # The 'Crossover' logic
-        if self.wetness > 0.5 and tire_type == "Slick":
-            return "PIT FOR INTERS"
-
-        if self.wetness < 0.2 and tire_type == "Inters":
-            return "PIT FOR SLICKS"
-        
-        return "STAY OUT"
-    
-class Tire:
-    def __init__(self, compound):
-        if compound not in TIRE_STATS:
-            print(f"Error: {compound} is not a valid tire. Defaulting to Medium.")
-            compound = "Medium"
-        self.compound = compound
-        self.life = 100
-        self.wear_rate = TIRE_STATS[self.compound]["wear_rate"]
-
-    def wear(self):
-        self.life = max(0.0, self.life - (self.wear_rate * 5.0))
-
-
-def find_best_strategy(driver_name, compound_start, compound_end, total_laps):
-    results = {}
-    for pit_lap in range(1, total_laps):
-        test_car = RaceCar("SimTeam", driver_name, compound_start, 130)
-        for lap in range(1, total_laps + 1):
-            test_car.drive_lap()
-            if lap == pit_lap:
-                test_car.pit_stop(compound_end, silent=True)
-        results[pit_lap] = test_car.total_time
-
-    best_lap = min(results, key=results.get)
-    best_time = results[best_lap]
-    return best_lap, best_time
+            
+        # 3. Safety Car (2% chance to deploy, 30% chance to end)
+        if not self.safety_car and random.random() < 0.02:
+            self.safety_car = True
+            print("\n⚠️ SAFETY CAR DEPLOYED! ⚠️")
+        elif self.safety_car and random.random() < 0.3:
+            self.safety_car = False
+            print("\n🟢 SAFETY CAR ENDING - RACE RESUMED 🟢")
 
 class RaceCar:
     def __init__(self, team, driver_name, tire_compound, fuel):
         self.team = team
         self.driver_name = driver_name
-        self.current_tire = Tire(tire_compound)
-        self.base_lap_time = 80.0
+        # Tire currently fitted to the car (string matching TIRE_STATS keys)
+        self.tire_type = tire_compound
+        # Laps completed on the current set of tires
+        self.current_lap_on_tire = 0
+        # Accumulated race time (seconds)
         self.total_time = 0.0
+        # Fuel remaining (kg) — used to apply a small fuel-weight penalty per lap
         self.fuel = fuel
+        # Whether this car pitted during the current lap (reset after logging)
+        self.pitted_this_lap = False
+        # Per-driver telemetry and counters
+        self.lap_times = []
+        self.pit_count = 0
+        self.cumulative_pit_time = 0.0
+        self.fastest_lap = None
 
-        self.current_lap_on_tire = 1
+    def calculate_lap_time(self, track):
+        # If Safety Car is active, laps are slow and fairly consistent
+        if track.safety_car:
+            return 110.0 + random.uniform(0.1, 0.5)
 
-    @property
-    def tire_type(self):
-        return self.current_tire.compound
-
-    def calculate_lap_time(self, track=None):
-        if track is None:
-            track = Track()
-
-        base_time = 85.0
-        stats = TIRE_STATS[self.current_tire.compound]
+        # Base tire/track calculations
+        stats = TIRE_STATS[self.tire_type]
+        # Weather penalty scales with how poorly the tire handles wet conditions
         weather_gap = (1.0 - stats["wet_efficiency"]) * track.wetness * 30.0
-        wear_penalty = self.current_lap_on_tire * stats["wear_rate"]
+        # Tire wear penalty grows with the number of laps on the tyre
+        wear_penalty = (self.current_lap_on_tire * stats["wear_rate"])
 
-        if self.current_tire.compound in ["Inters", "Full_Wet"] and track.wetness < 0.2:
+        # Intermediates / full wets wear much faster on a dry track
+        if self.tire_type in ["Inters", "Full_Wet"] and track.wetness < 0.2:
             wear_penalty *= 2.0
 
-        fuel_penalty = self.fuel * 0.03
-        randomness = random.uniform(-0.1, 0.3)
+        # Final lap time is base + compound modifier + weather + wear
+        return 85.0 + stats["base_pace_mod"] + weather_gap + wear_penalty
 
-        return base_time + stats["base_pace_mod"] + weather_gap + wear_penalty + fuel_penalty + randomness
-
-    def pit_stop(self, new_compound, silent=False):
-        self.total_time += 22.0
-        if not silent:
-            print(f"\n--- {self.driver_name} is BOXING ---")
-        self.current_tire = Tire(new_compound)
-        self.current_lap_on_tire = 1
-
-    def burn_fuel(self):
-        if self.fuel > 1.8:
-            self.fuel -= 1.8
-        else:
-            self.fuel = 0
-
-    def drive_lap(self, track=None):
-        current_lap_time = self.calculate_lap_time(track)
-        self.total_time += current_lap_time
-        self.current_tire.wear()
-        self.burn_fuel()
+    def drive_lap(self, track):
+        # Check strategy before driving
+        self.decide_pit_stop(track)
+        
+        lap_time = self.calculate_lap_time(track)
+        if not track.safety_car and getattr(track, 'was_sc_last_lap', False):
+            lap_time += 1.0
+        self.total_time += lap_time
         self.current_lap_on_tire += 1
-        return current_lap_time
+        self.fuel -= 1.8
 
-    def lift_and_coast(self):
-        self.fuel -= 1.2  
-        self.total_time += 0.5
+        # record per-lap telemetry
+        self.lap_times.append(lap_time)
+        if self.fastest_lap is None or lap_time < self.fastest_lap:
+            self.fastest_lap = lap_time
+
+        return lap_time
+
+    def pit_stop(self, new_compound, track, silent=False):
+        # Pit stops are quicker under Safety Car conditions
+        time_loss = 12.0 if track.safety_car else 22.0
+        self.total_time += time_loss
+
+        if not silent:
+            status = " (CHEAP STOP)" if track.safety_car else ""
+            print(f"[{self.driver_name}] BOX BOX for {new_compound}{status}")
+
+        # Fit the new compound and reset tyre lap counter
+        self.tire_type = new_compound
+        self.current_lap_on_tire = 0
+        # Mark that a pit happened this lap (caller will clear after logging)
+        self.pitted_this_lap = True
+        # record pit stats
+        self.pit_count += 1
+        self.cumulative_pit_time += time_loss
 
     def decide_pit_stop(self, track):
-        """
-        The car looks at the Track object to decide if it needs
-        to change tires based on the crossover point.
-        """
-        if track.wetness > 0.5 and self.tire_type == "Slick":
-            print(f"[{self.driver_name}] Track is too wet! Pitting for INTERS.")
-            self.current_tire = Tire("Inters")
-            self.current_lap_on_tire = 1
-            return True
+        # 1. Rain Logic
+        # Switch to intermediates/full wets when track crosses a wetness threshold
+        if track.wetness > 0.5 and self.tire_type not in ["Inters", "Full_Wet"]:
+            self.pit_stop("Inters", track)
+        # Switch back to a dry compound once the track is sufficiently dry
+        elif track.wetness < 0.2 and self.tire_type in ["Inters", "Full_Wet"]:
+            self.pit_stop("Medium", track)
 
-        if track.wetness < 0.2 and self.tire_type == "Inters":
-            print(f"[{self.driver_name}] Track is drying! Pitting for SLICKS.")
-            self.current_tire = Tire("Soft")
-            self.current_lap_on_tire = 1
-            return True
+        # Opportunistic Safety Car stop: if SC present and tyres are fairly worn
+        elif track.safety_car and self.current_lap_on_tire > 15:
+            self.pit_stop("Soft", track)
 
-        return False
-        
+def save_race_results(filename, race_data):
+    # Persist a CSV telemetry file with extended headers including timestamp
+    keys = [
+        "Lap", "Driver", "Tire", "LapTime", "TrackWetness",
+        "RaceTime", "Fuel", "Pit", "Timestamp"
+    ]
+    with open(filename, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=keys)
+        writer.writeheader()
+        writer.writerows(race_data)
+    print(f"\nSaved results to {filename}")
+
+
+def save_per_driver_csvs(history):
+    # Write one CSV per driver by filtering the full history
+    drivers = {}
+    for row in history:
+        drivers.setdefault(row["Driver"], []).append(row)
+
+    for driver, rows in drivers.items():
+        safe_name = driver.replace(" ", "_")
+        fname = f"{safe_name}_telemetry.csv"
+        # Use the same headers as the main telemetry export
+        keys = ["Lap", "Driver", "Tire", "LapTime", "TrackWetness", "RaceTime", "Fuel", "Pit", "Timestamp"]
+        with open(fname, "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=keys)
+            writer.writeheader()
+            writer.writerows(rows)
+        print(f"Saved per-driver telemetry to {fname}")
+
+
+def save_race_report(txt_fname, cars, report_format: str = "both"):
+    # Produce a CSV summary and a human-readable text report
+    csv_fname = "race_summary.csv"
+    keys = ["Driver", "Team", "TotalTime", "PitCount", "CumulativePitTime", "FastestLap", "AverageLap"]
+    rows = []
+    winner = None
+    best_time = None
+
+    for car in cars:
+        avg = round(sum(car.lap_times) / len(car.lap_times), 3) if car.lap_times else 0.0
+        fastest = round(car.fastest_lap, 3) if car.fastest_lap is not None else 0.0
+        rows.append({
+            "Driver": car.driver_name,
+            "Team": car.team,
+            "TotalTime": round(car.total_time, 3),
+            "PitCount": car.pit_count,
+            "CumulativePitTime": round(car.cumulative_pit_time, 3),
+            "FastestLap": fastest,
+            "AverageLap": avg
+        })
+
+        if best_time is None or car.total_time < best_time:
+            best_time = car.total_time
+            winner = car
+
+    # write CSV summary
+    with open(csv_fname, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=keys)
+        writer.writeheader()
+        writer.writerows(rows)
+
+    # write textual report if requested
+    if report_format in ("text", "both"):
+        with open(txt_fname, "w") as f:
+            f.write("Race Report\n")
+            f.write("===========\n\n")
+            f.write(f"Winner: {winner.driver_name} ({winner.team}) - Total Time: {round(winner.total_time,3)}s\n\n")
+            for r in rows:
+                f.write(f"{r['Driver']} ({r['Team']}): Total={r['TotalTime']}s, Pits={r['PitCount']}, Fastest={r['FastestLap']}s, Avg={r['AverageLap']}s\n")
+
+    # write markdown report if requested (same content in markdown)
+    if report_format in ("md", "both"):
+        md_name = txt_fname.replace('.txt', '.md')
+        with open(md_name, 'w') as f:
+            f.write("# Race Report\n\n")
+            f.write(f"**Winner:** {winner.driver_name} ({winner.team}) — **Total Time:** {round(winner.total_time,3)}s\n\n")
+            f.write("| Driver | Team | Total Time (s) | Pits | Fastest Lap (s) | Avg Lap (s) |\n")
+            f.write("|---|---:|---:|---:|---:|---:|\n")
+            for r in rows:
+                f.write(f"| {r['Driver']} | {r['Team']} | {r['TotalTime']} | {r['PitCount']} | {r['FastestLap']} | {r['AverageLap']} |\n")
+
+    print(f"Saved race summary to {csv_fname} and {txt_fname} (md={report_format in ('md','both')})")
+
+
+def _make_timestamp(mode: str) -> str:
+    """Return an ISO timestamp string according to `mode`.
+
+    mode: 'utc' for timezone-aware UTC, 'local' for local timezone
+    """
+    if mode == "local":
+        return datetime.now().astimezone().isoformat()
+    # default to timezone-aware UTC
+    return datetime.now(timezone.utc).isoformat()
+
+
+def run_simulation(laps: int = 50, ts_mode: str = "utc", report_format: str = "both"):
+    track = Track()
+    mercedes = RaceCar("Mercedes", "Kimi Antonelli", "Soft", 100)
+    red_bull = RaceCar("Red Bull", "Max Verstappen", "Soft", 100)
+    history = []
+
+    # Main race loop: simulate each lap, update weather, run both cars,
+    # record telemetry for each car every lap, and handle opportunistic SC stops.
+    for lap in range(1, laps + 1):
+        # Remember whether Safety Car was active last lap so cars can apply
+        # post-SC adjustments (the drive_lap check uses `was_sc_last_lap`).
+        prev_sc = track.safety_car
+
+        # Update track conditions for this lap (may deploy or clear SC).
+        track.update_weather()
+
+        # Mark if Safety Car ended this lap (was active previous lap but not now)
+        track.was_sc_last_lap = (prev_sc and not track.safety_car)
+
+        # Drive both cars for this lap
+        mer_time = mercedes.drive_lap(track)
+        rb_time = red_bull.drive_lap(track)
+
+        # Safety Car opportunistic pit logic (same checks as before)
+        if track.safety_car:
+            if mercedes.total_time < red_bull.total_time and mercedes.current_lap_on_tire > 12:
+                mercedes.pit_stop("Soft", track)
+            elif red_bull.current_lap_on_tire < 20:
+                print(f"[{red_bull.driver_name}] Staying out to take the lead!")
+
+        # Append telemetry rows for both drivers each lap, including
+        # a wall-clock timestamp and cumulative race time.
+        ts = _make_timestamp(ts_mode)
+
+        history.append({
+            "Lap": lap,
+            "Driver": mercedes.driver_name,
+            "Tire": mercedes.tire_type,
+            "LapTime": round(mer_time, 3),
+            "TrackWetness": round(track.wetness, 2),
+            "RaceTime": round(mercedes.total_time, 3),
+            "Fuel": round(mercedes.fuel, 2),
+            "Pit": bool(mercedes.pitted_this_lap),
+            "Timestamp": ts
+        })
+        # clear per-lap pit marker after logging
+        mercedes.pitted_this_lap = False
+
+        history.append({
+            "Lap": lap,
+            "Driver": red_bull.driver_name,
+            "Tire": red_bull.tire_type,
+            "LapTime": round(rb_time, 3),
+            "TrackWetness": round(track.wetness, 2),
+            "RaceTime": round(red_bull.total_time, 3),
+            "Fuel": round(red_bull.fuel, 2),
+            "Pit": bool(red_bull.pitted_this_lap),
+            "Timestamp": ts
+        })
+        red_bull.pitted_this_lap = False
+
+    save_race_results("race_telemetry.csv", history)
+    # Also export per-driver files and a summary report
+    save_per_driver_csvs(history)
+    # write textual report and optionally markdown
+    save_race_report("race_report.txt", [mercedes, red_bull], report_format=report_format)
+
 
 if __name__ == "__main__":
-    plot_tire_comparison(50)
-    # 1. Run the Strategy Simulation
-    print("--- Strategy Team: Calculating Optimal Window ---")
-    best_lap, best_time = find_best_strategy("Kimi Antonelli", "Soft", "Hard", 50)
-    print(f"SUGGESTED STRATEGY: Pit on Lap {best_lap} for a projected {best_time:.2f}s total.\n")
+    parser = argparse.ArgumentParser(description="Run F1 strategy stochastic simulator")
+    parser.add_argument("--laps", type=int, default=50, help="Number of laps to simulate")
+    parser.add_argument("--timestamp-mode", choices=["utc", "local"], default="utc", help="Timestamp mode for telemetry")
+    parser.add_argument("--report-format", choices=["text", "md", "both"], default="both", help="Format for race report output")
+    args = parser.parse_args()
 
-    # 2. Set up the actual race
-    mercedes = RaceCar("Mercedes", "Kimi Antonelli", "Soft", 120)
-    red_bull = RaceCar("Red Bull", "Max Verstappen", "Hard", 120)
-
-    print(f"--- 50 Lap Race Start ---")
-    for lap in range(1, 51):
-        mercedes.drive_lap()
-        red_bull.drive_lap()
-
-        if lap == best_lap:
-            mercedes.pit_stop("Hard")
-
-        # Progress reporting
-        if lap % 10 == 0:
-            print(f"\nLAP {lap}")
-            print(f"Merc Pace: {mercedes.total_time:.2f}s | Fuel: {mercedes.fuel:.1f}kg")
-            print(f"RB Pace: {red_bull.total_time:.2f}s | Fuel: {red_bull.fuel:.1f}kg")
-
-        # DNF Check
-        if mercedes.fuel <= 0 or red_bull.fuel <= 0:
-            print("\n--- CRITICAL: FUEL DEPLETED ---")
-            break
-
-    print("\n--- Final Result ---")
-    winner = "Mercedes" if mercedes.total_time < red_bull.total_time else "Red Bull"
-    print(f"The winner is {winner}!")
+    run_simulation(laps=args.laps, ts_mode=args.timestamp_mode, report_format=args.report_format)
