@@ -37,15 +37,22 @@ if __name__ == "__main__":
 
     def find_best_strategy(driver_name: str, compound_start: str, compound_end: str, total_laps: int):
         results = {}
-        for pit_lap in range(1, total_laps):
-            test_car = RaceCar("SimTeam", driver_name, compound_start, fuel=130)
-            track = Track()
-            for lap in range(1, total_laps + 1):
-                test_car.drive_lap(track)
-                if lap == pit_lap:
-                    test_car.pit_stop(compound_end, silent=True)
-                track.update_weather()
-            results[pit_lap] = test_car.total_time
+        strategy_seed = 0
+        original_random_state = random.getstate()
+
+        try:
+            for pit_lap in range(1, total_laps):
+                random.seed(strategy_seed)
+                test_car = RaceCar("SimTeam", driver_name, compound_start, fuel=130)
+                track = Track()
+                for lap in range(1, total_laps + 1):
+                    test_car.drive_lap(track)
+                    if lap == pit_lap:
+                        test_car.pit_stop(compound_end, silent=True)
+                    track.update_weather()
+                results[pit_lap] = test_car.total_time
+        finally:
+            random.setstate(original_random_state)
 
         best_lap = min(results, key=results.get)
         return best_lap, results[best_lap]
