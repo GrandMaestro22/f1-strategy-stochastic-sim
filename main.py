@@ -75,6 +75,10 @@ if __name__ == "__main__":
 
         if lap == best_lap:
             mercedes.pit_stop("Hard")
+        else:
+            mercedes.decide_pit_stop(track)
+
+        red_bull.decide_pit_stop(track)
 
         if lap % 10 == 0:
             print(f"\nLAP {lap}")
