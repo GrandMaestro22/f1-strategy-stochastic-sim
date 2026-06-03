@@ -304,6 +304,12 @@ if __name__ == "__main__":
     parser.add_argument("--laps", type=int, default=50, help="Number of laps to simulate")
     parser.add_argument("--timestamp-mode", choices=["utc", "local"], default="utc", help="Timestamp mode for telemetry")
     parser.add_argument("--report-format", choices=["text", "md", "both"], default="both", help="Format for race report output")
+    parser.add_argument("--gui", action="store_true", help="Launch the visual strategy interface")
     args = parser.parse_args()
 
-    run_simulation(laps=args.laps, ts_mode=args.timestamp_mode, report_format=args.report_format)
+    if args.gui:
+        from gui import launch_app
+
+        launch_app()
+    else:
+        run_simulation(laps=args.laps, ts_mode=args.timestamp_mode, report_format=args.report_format)
